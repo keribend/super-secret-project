@@ -160,6 +160,8 @@ loginController.post('/login', function(req, res) {
 					token: token
 				});
 			}
+		} else {
+			res.json({ success: false, message: 'Unexpected state. Error code: [ebwashvalgn1l8mvaemi]' });
 		}
 	});
 });
