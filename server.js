@@ -169,6 +169,9 @@ loginController.post('/login', function(req, res) {
 	});
 });
 
+// route middleware to manage login (and signup)
+apiRoutes.use('/auth', loginController);
+
 coordinateController.get('/random', function(req, res) {
 	// following variables indetify two points that represent two corner of a rectangle
 	// their value were picked manually from google maps and the rectangle cover Milan
