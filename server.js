@@ -54,6 +54,9 @@ app.get('/setup', function(req, res) {
 // get an instance of the router for api routes
 var apiRoutes = express.Router();
 var loginController = express.Router();
+var coordinateController = express.Router();
+
+
 // setup crypto things to store passwords in a safe way
 
 /**
@@ -166,6 +169,20 @@ loginController.post('/login', function(req, res) {
 	});
 });
 
+coordinateController.get('/random', function(req, res) {
+	// following variables indetify two points that represent two corner of a rectangle
+	// their value were picked manually from google maps and the rectangle cover Milan
+	// y - latitude : 45.433153642271390 - 45.50754994308527
+	// x - longitude:  9.106121063232422 -  9.26198959350586
+	var minX =  9.106121063232422;
+	var maxX =  9.261989593505860;
+	var minY = 45.433153642271390;
+	var maxY = 45.507549943085270;
+	var coordX = Math.random() * (minX - maxX) + maxX;
+	var coordY = Math.random() * (minY - maxY) + maxY;
+	res.json({ success:true, x: coordX, y: coordY });
+});
+
 // route middleware to verify a token
 apiRoutes.use(function(req, res, next) {
 	// check header or url parameters or post parameters for token
@@ -203,6 +220,9 @@ apiRoutes.get('/users', function(req, res) {
 		res.json(users);
 	});
 });
+
+// apply test routes middleware to api routes
+apiRoutes.use('/coord', coordinateController);
 
 // apply the routes to our application with the prefix /api
 app.use('/api', apiRoutes);
