@@ -5,6 +5,7 @@ var app = express();
 var bodyParser = require('body-parser');
 var morgan = require('morgan');
 var mongoose = require('mongoose');
+var crypto = require('crypto');
 require('dotenv').config();
 
 var jwt = require('jsonwebtoken'); // used to create, sign, and verify tokens
@@ -35,6 +36,7 @@ app.get('/setup', function(req, res) {
 	var nick = new User({
 		email: 'admin@mail.com',
 		password: '123456',
+		passwordSalt: '123456',
 		admin: true
 	});
 
@@ -51,9 +53,87 @@ app.get('/setup', function(req, res) {
 
 // get an instance of the router for api routes
 var apiRoutes = express.Router();
+var loginController = express.Router();
+// setup crypto things to store passwords in a safe way
 
-// route to authenticate a user (POST http://localhost:8080/api/authenticate)
-apiRoutes.post('/authenticate', function(req, res) {
+/**
+ * generates random string of characters i.e salt
+ * @function
+ * @param {number} length - Length of the random string.
+ */
+var genRandomString = function(length){
+return crypto.randomBytes(Math.ceil(length/2))
+						.toString('hex')	/** convert to hexadecimal format */
+						.slice(0,length);	/** return required number of characters */
+};
+
+/**
+ * hash password with sha512.
+ * @function
+ * @param {string} password - List of required fields.
+ * @param {string} salt - Data to be validated.
+ */
+var sha512 = function(password, salt){
+	var hash = crypto.createHmac('sha512', salt); /** Hashing algorithm sha512 */
+	hash.update(password);
+	var value = hash.digest('hex');
+	return {
+		salt:salt,
+		passwordHash:value
+	};
+};
+
+// create new user
+loginController.post('/signin', function(req, res) {
+	/**
+	 * Now lets create a function that will use the above function to generate the hash
+	 * that should be stored in the database as user’s password.
+	*/
+	function saltHashPassword(userpassword) {
+		var salt = genRandomString(16); /** Gives us salt of length 16 */
+		var passwordData = sha512(userpassword, salt);
+		// console.log('UserPassword = '+userpassword);
+		// console.log('Passwordhash = '+passwordData.passwordHash);
+		// console.log('Salt = '+passwordData.salt);
+		return passwordData ;
+	}
+
+	// find user if exist
+	User.findOne({
+		email: req.body.email
+	}, function(err, user) {
+		if (err) throw err;
+		if (user) {
+			res.json({ success: false, message: 'Signin failed. User already exists.' });
+		} else if (!user) {
+			var email = req.body.email;
+			var passData = saltHashPassword(req.body.password);
+
+			// create user instance
+			var nick = new User({
+				email: email,
+				password: passData.passwordHash,
+				passwordSalt: passData.salt,
+				admin: false
+			});
+
+			// save the instance
+			nick.save(function(err) {
+				if (err) throw err;
+
+				console.log('User saved successfully');
+				res.json({ success: true });
+			});
+
+
+		} else {
+			res.json({ success: false, message: 'Unexpected state. Error code: [tqlpezigmzwhva13jtt9]' });
+		}
+	});
+});
+
+// authenticate existing user
+loginController.post('/login', function(req, res) {
 	// find the user
 	User.findOne({
 		email: req.body.email
@@ -63,7 +143,12 @@ apiRoutes.post('/authenticate', function(req, res) {
 			res.json({ success: false, message: 'Authentication failed. User or password incorrect.' });
 		} else if (user) {
 			// check if password matches
-			if (user.password != req.body.password) {
+			var inputPassword = req.body.password;
+			var storedHashPassword = user.password;
+			var passwordData = sha512(inputPassword, user.passwordSalt);
+			var inputHashPassword = passwordData.passwordHash;
+
+			if (inputHashPassword != storedHashPassword) {
 				res.json({ success: false, message: 'Authentication failed. User or password incorrect.' });
 			} else {
 				var token = jwt.sign({ email: user.email}, app.get('superSecret'), { expiresIn: 60*60*24 });
