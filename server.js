@@ -221,7 +221,13 @@ apiRoutes.get('/users', function(req, res) {
 	});
 });
 
+var testController = express.Router();
+testController.get('/sandbox', function(req, res) {
+	res.json({ value: Math.random() * (0.120 - 0.0200) + 0.0200 });
+});
+
 // apply test routes middleware to api routes
+apiRoutes.use('/test', testController);
 apiRoutes.use('/coord', coordinateController);
 
 // apply the routes to our application with the prefix /api
